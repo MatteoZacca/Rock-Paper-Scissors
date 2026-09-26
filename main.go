@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"time"
 )
@@ -25,22 +25,16 @@ type Player struct {
 	score int
 }
 
+var availableMoves = [3]string{"Rock", "Paper", "Scissors"}
+
 func (m Move) String() string {
-	switch m {
-	case Rock:
-		return "Rock"
-	case Paper:
-		return "Paper"
-	case Scissors:
-		return "Scissors"
-	}
-	return "Unknown"
+	return availableMoves[m]
 }
 
 func playerRoutine(p Player, moveChan chan<- Move, resChan <-chan int, wg *sync.WaitGroup) {
 
 	for {
-		move := Move(rand.Intn(3))
+		move := Move(rand.IntN(3))
 
 		moveChan <- move
 
@@ -82,16 +76,15 @@ func main() {
 		p1Move := <-p1MoveChan
 		p2Move := <-p2MoveChan
 
-		if p1Move == p2Move {
+		outcome := (p1Move - p2Move + 3) % 3
+
+		if outcome == 0 {
 			p1ResChan <- 0
 			p2ResChan <- 0
-		} else if (p1Move == Rock && p2Move == Scissors) ||
-			(p1Move == Paper && p2Move == Rock) ||
-			(p1Move == Scissors && p2Move == Paper) {
-
+		} else if outcome == 1 {
 			p1ResChan <- 1
 			p2ResChan <- 0
-		} else {
+		} else { // outcome == 2 means Player 2 wins
 			p1ResChan <- 0
 			p2ResChan <- 1
 		}
