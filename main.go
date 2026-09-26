@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
+	"time"
 )
 
 const (
@@ -20,69 +21,85 @@ const (
 )
 
 type Player struct {
-	id   int
-	move Move
+	id    int
+	score int
 }
 
-func translateMove(move int) Move {
-	switch move {
-	case 0:
-		return Rock
-	case 1:
-		return Paper
-	case 2:
-		return Scissors
+func (m Move) String() string {
+	switch m {
+	case Rock:
+		return "Rock"
+	case Paper:
+		return "Paper"
+	case Scissors:
+		return "Scissors"
 	}
-
-	return Rock
+	return "Unknown"
 }
 
-func playerMove(player Player, ref chan Move) {
-	move := rand.Intn(3)
+func playerRoutine(p Player, moveChan chan<- Move, resChan <-chan int, wg *sync.WaitGroup) {
 
-	// func for mapping int to Move
-	player.move = translateMove(move)
+	for {
+		move := Move(rand.Intn(3))
 
-	ref <- player.move
+		moveChan <- move
+
+		result := <-resChan
+
+		switch result {
+		case 1:
+			p.score++
+			fmt.Printf("Player %d WON with %s! (Score: %d)\n", p.id, move, p.score)
+		case -1:
+			fmt.Printf("Player %d LOST with %s... (Score: %d)\n", p.id, move, p.score)
+		default:
+			fmt.Printf("Player %d TIED with %s. (Score: %d)\n", p.id, move, p.score)
+		}
+
+		wg.Done()
+	}
 }
 
 func main() {
-	ref := make(chan Move, 2)
-	firstPlayer := Player{
-		id: FirstPlayerId,
-	}
-	secondPlayer := Player{
-		id: SecondPlayerId,
-	}
+	p1MoveChan, p1ResChan := make(chan Move), make(chan int)
+	p2MoveChan, p2ResChan := make(chan Move), make(chan int)
+
+	firstPlayer := Player{id: FirstPlayerId}
+	secondPlayer := Player{id: SecondPlayerId}
 
 	var wg sync.WaitGroup
 
+	go playerRoutine(firstPlayer, p1MoveChan, p1ResChan, &wg)
+	go playerRoutine(secondPlayer, p2MoveChan, p2ResChan, &wg)
+
+	turn := 1
+
 	for {
+		fmt.Printf("\n--- Turn %d ---\n", turn)
+
 		wg.Add(2)
 
-		go func() {
-			defer wg.Done()
-			playerMove(firstPlayer, ref)
-			firstPlayer.move = <-ref
-		}()
+		p1Move := <-p1MoveChan
+		p2Move := <-p2MoveChan
 
-		go func() {
-			defer wg.Done()
-			playerMove(secondPlayer, ref)
-			secondPlayer.move = <-ref
-		}()
+		if p1Move == p2Move {
+			p1ResChan <- 0
+			p2ResChan <- 0
+		} else if (p1Move == Rock && p2Move == Scissors) ||
+			(p1Move == Paper && p2Move == Rock) ||
+			(p1Move == Scissors && p2Move == Paper) {
 
-		if firstPlayer.move == secondPlayer.move {
-			fmt.Println("It's a tie!")
-		} else if (firstPlayer.move == Rock && secondPlayer.move == Scissors) ||
-			(firstPlayer.move == Paper && secondPlayer.move == Rock) ||
-			(firstPlayer.move == Scissors && secondPlayer.move == Paper) {
-			fmt.Printf("Player %d wins!\n", firstPlayer.id)
+			p1ResChan <- 1
+			p2ResChan <- 0
 		} else {
-			fmt.Printf("Player %d wins!\n", secondPlayer.id)
+			p1ResChan <- 0
+			p2ResChan <- 1
 		}
 
 		wg.Wait()
+
+		time.Sleep(1 * time.Second) // Pause so the terminal is readable
+		turn++
 	}
 
 }
