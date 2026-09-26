@@ -78,13 +78,14 @@ func main() {
 
 		outcome := (p1Move - p2Move + 3) % 3
 
-		if outcome == 0 {
+		switch outcome {
+		case 0:
 			p1ResChan <- 0
 			p2ResChan <- 0
-		} else if outcome == 1 {
+		case 1:
 			p1ResChan <- 1
 			p2ResChan <- 0
-		} else { // outcome == 2 means Player 2 wins
+		default: // outcome == 2 means Player 2 wins
 			p1ResChan <- 0
 			p2ResChan <- 1
 		}
