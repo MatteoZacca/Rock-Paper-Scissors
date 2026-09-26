@@ -21,8 +21,10 @@ const (
 )
 
 type Player struct {
-	id    int
-	score int
+	id       int
+	score    int
+	moveChan chan Move
+	resChan  chan int
 }
 
 var availableMoves = [3]string{"Rock", "Paper", "Scissors"}
@@ -31,14 +33,21 @@ func (m Move) String() string {
 	return availableMoves[m]
 }
 
-func playerRoutine(p Player, moveChan chan<- Move, resChan <-chan int, wg *sync.WaitGroup) {
+func NewPlayer(id int) *Player {
+	return &Player{
+		id:       id,
+		moveChan: make(chan Move),
+		resChan:  make(chan int),
+	}
+}
 
+func (p *Player) Play(wg *sync.WaitGroup) {
 	for {
 		move := Move(rand.IntN(3))
 
-		moveChan <- move
+		p.moveChan <- move
 
-		result := <-resChan
+		result := <-p.resChan
 
 		switch result {
 		case 1:
@@ -55,16 +64,13 @@ func playerRoutine(p Player, moveChan chan<- Move, resChan <-chan int, wg *sync.
 }
 
 func main() {
-	p1MoveChan, p1ResChan := make(chan Move), make(chan int)
-	p2MoveChan, p2ResChan := make(chan Move), make(chan int)
-
-	firstPlayer := Player{id: FirstPlayerId}
-	secondPlayer := Player{id: SecondPlayerId}
+	p1 := NewPlayer(FirstPlayerId)
+	p2 := NewPlayer(SecondPlayerId)
 
 	var wg sync.WaitGroup
 
-	go playerRoutine(firstPlayer, p1MoveChan, p1ResChan, &wg)
-	go playerRoutine(secondPlayer, p2MoveChan, p2ResChan, &wg)
+	go p1.Play(&wg)
+	go p2.Play(&wg)
 
 	turn := 1
 
@@ -73,23 +79,24 @@ func main() {
 
 		wg.Add(2)
 
-		p1Move := <-p1MoveChan
-		p2Move := <-p2MoveChan
+		p1Move := <-p1.moveChan
+		p2Move := <-p2.moveChan
 
 		outcome := (p1Move - p2Move + 3) % 3
 
 		switch outcome {
 		case 0:
-			p1ResChan <- 0
-			p2ResChan <- 0
+			p1.resChan <- 0
+			p2.resChan <- 0
 		case 1:
-			p1ResChan <- 1
-			p2ResChan <- 0
+			p1.resChan <- 1
+			p2.resChan <- -1
 		default: // outcome == 2 means Player 2 wins
-			p1ResChan <- 0
-			p2ResChan <- 1
+			p1.resChan <- -1
+			p2.resChan <- 1
 		}
 
+		// Wait for both players to finish printing their scores
 		wg.Wait()
 
 		time.Sleep(1 * time.Second) // Pause so the terminal is readable
