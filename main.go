@@ -25,12 +25,20 @@ func (m Move) String() string {
 	return availableMoves[m]
 }
 
+type Result int
+
+const (
+	Draw Result = iota
+	Win
+	Lose
+)
+
 type Player struct {
 	id          int
 	score       int
 	askMoveChan chan struct{}
 	moveChan    chan Move
-	resChan     chan int
+	resChan     chan Result
 	doneChan    chan struct{}
 }
 
@@ -39,7 +47,7 @@ func NewPlayer(id int) *Player {
 		id:          id,
 		askMoveChan: make(chan struct{}),
 		moveChan:    make(chan Move),
-		resChan:     make(chan int),
+		resChan:     make(chan Result),
 		doneChan:    make(chan struct{}),
 	}
 }
@@ -50,7 +58,7 @@ func (p *Player) Play() {
 		<-p.askMoveChan
 
 		// Randomly select the move
-		move := Move(rand.IntN(3))
+		move := Move(rand.IntN(len(availableMoves)))
 
 		// Communicate the move to the referee
 		p.moveChan <- move
@@ -60,13 +68,13 @@ func (p *Player) Play() {
 
 		// Update score and print
 		switch result {
-		case 1:
+		case Win:
 			p.score++
-			fmt.Printf("Player %d WON with %s! (Score: %d)\n", p.id, move, p.score)
-		case -1:
-			fmt.Printf("Player %d LOST with %s... (Score: %d)\n", p.id, move, p.score)
-		default:
-			fmt.Printf("Player %d TIED with %s. (Score: %d)\n", p.id, move, p.score)
+			fmt.Printf("Player %d: I WON with %s! (Score: %d)\n", p.id, move, p.score)
+		case Lose:
+			fmt.Printf("Player %d: I LOST with %s... (Score: %d)\n", p.id, move, p.score)
+		case Draw:
+			fmt.Printf("Player %d: DRAW with %s. (Score: %d)\n", p.id, move, p.score)
 		}
 
 		p.doneChan <- struct{}{}
@@ -96,22 +104,22 @@ func main() {
 		fmt.Printf("Referee: Player 1 played %s | Player 2 played %s\n", p1Move, p2Move)
 
 		// Referee calculates the winner
-		outcome := (p1Move - p2Move + 3) % 3
+		outcome := (int(p1Move) - int(p2Move) + len(availableMoves)) % len(availableMoves)
 
 		// Referee communicates outcomes
 		switch outcome {
 		case 0:
 			fmt.Println("Referee: It's a Tie!")
-			p1.resChan <- 0
-			p2.resChan <- 0
+			p1.resChan <- Draw
+			p2.resChan <- Draw
 		case 1:
 			fmt.Println("Referee: Player 1 takes the round!")
-			p1.resChan <- 1
-			p2.resChan <- -1
+			p1.resChan <- Win
+			p2.resChan <- Lose
 		default: // outcome == 2
 			fmt.Println("Referee: Player 2 takes the round!")
-			p1.resChan <- -1
-			p2.resChan <- 1
+			p1.resChan <- Lose
+			p2.resChan <- Win
 		}
 
 		<-p1.doneChan
