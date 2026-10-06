@@ -8,10 +8,10 @@ import (
 type Player struct {
 	id          int
 	score       int
-	askMoveChan chan struct{}
-	moveChan    chan Move
-	resChan     chan Result
-	doneChan    chan struct{}
+	askMoveChan chan struct{} // Channel to signal the player to make a move
+	moveChan    chan Move     // Channel to send the player's move to the referee
+	resChan     chan Result   // Channel to receive the result of the round from the referee
+	doneChan    chan struct{} // Channel to signal the referee that the player has finished processing the result
 }
 
 func NewPlayer(id int) *Player {

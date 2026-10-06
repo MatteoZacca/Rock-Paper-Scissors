@@ -31,6 +31,7 @@ func (r *Referee) StartMatch() {
 
 		fmt.Printf("Referee: Player %d played %s | Player %d played %s\n", r.p1.id, p1Move, r.p2.id, p2Move)
 
+		// Logic to determine the winner based on the moves
 		outcome := (int(p1Move) - int(p2Move) + len(availableMoves)) % len(availableMoves)
 
 		switch outcome {
@@ -42,7 +43,7 @@ func (r *Referee) StartMatch() {
 			fmt.Println("Referee: Player 1 takes the round!")
 			r.p1.resChan <- Win
 			r.p2.resChan <- Lose
-		default:
+		default: // 2
 			fmt.Println("Referee: Player 2 takes the round!")
 			r.p1.resChan <- Lose
 			r.p2.resChan <- Win
@@ -51,7 +52,7 @@ func (r *Referee) StartMatch() {
 		<-r.p1.doneChan
 		<-r.p2.doneChan
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(1 * time.Second) // Optional: Add a delay between turns for better readability
 		turn++
 	}
 }
